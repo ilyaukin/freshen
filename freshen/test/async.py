@@ -12,9 +12,9 @@ class TwistedTestCase(FreshenTestCase, TestCase):
 
     # pylint: disable=R0913
     def __init__(self, step_runner, step_registry,
-                 feature, scenario, feature_suite):
+                 feature, scenario, feature_suite, position, feature_path):
         FreshenTestCase.__init__(self, step_runner, step_registry,
-                                 feature, scenario, feature_suite)
+                                 feature, scenario, feature_suite, position, feature_path)
         TestCase.__init__(self, scenario.name)
 
     def setUp(self):

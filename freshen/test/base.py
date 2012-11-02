@@ -23,6 +23,8 @@ class ExceptionWrapper(Exception):
 
 class FeatureSuite(object):
 
+    _multiprocess_can_split_ = True
+
     def setUp(self):
         #log.debug("Clearing feature context")
         ftc.clear()
@@ -43,12 +45,14 @@ class FreshenTestCase(object):
 
     test_type = "http"
 
-    def __init__(self, step_runner, step_registry, feature, scenario, feature_suite):
+    def __init__(self, step_runner, step_registry, feature, scenario, feature_suite, position, feature_path):
         self.feature = feature
         self.scenario = scenario
         self.context = feature_suite
         self.step_registry = step_registry
         self.step_runner = step_runner
+        self.position = position
+        self.feature_path = feature_path
 
         self.description = feature.name + ": " + scenario.name
 
@@ -72,3 +76,6 @@ class FreshenTestCase(object):
 
     def runScenario(self):
         raise NotImplementedError('Must be implemented by subclasses')
+
+    def address(self):
+        return self.feature_path, None, self.position

@@ -16,14 +16,14 @@ class StepsRunner(object):
     def __init__(self, step_registry):
         self.step_registry = step_registry
     
-    def run_steps_from_string(self, spec, language_name='en'):
+    def run_steps_from_string(self, spec, language_name='en', strict=False):
         """ Called from within step definitions to run other steps. """
         
         caller = inspect.currentframe().f_back
         line = caller.f_lineno - 1
         fname = caller.f_code.co_filename
         
-        steps = parse_steps(spec, fname, line, load_language(language_name))
+        steps = parse_steps(spec, fname, line, load_language(language_name), strict=strict)
         for s in steps:
             self.run_step(s)
     
@@ -33,6 +33,15 @@ class StepsRunner(object):
             return step_impl.run(step.arg, *args)
         else:
             return step_impl.run(*args)
+
+class DryStepsRunner(StepsRunner):
+    
+    def run_step(self, step):
+        step_impl, args = self.step_registry.find_step_impl(step)
+        if step.arg is not None:
+            return step_impl.dry_run(step.arg, *args)
+        else:
+            return step_impl.dry_run(*args)
 
 
 class TagMatcher(object):
@@ -65,11 +74,11 @@ class Language(object):
             return self.mappings[key].encode('utf').split("|")
 
 
-def load_feature(fname, language):
+def load_feature(fname, language, strict=False):
     """ Load and parse a feature file. """
 
     fname = os.path.abspath(fname)
-    feat = parse_file(fname, language)
+    feat = parse_file(fname, language, strict=strict)
     return feat
 
 def load_language(language_name, default_language_name="en"):
@@ -80,7 +89,7 @@ def load_language(language_name, default_language_name="en"):
         return None
     return Language(languages[language_name], languages[default_language_name])
 
-def run_steps(spec, language="en"):
+def run_steps(spec, language="en", strict=False):
     """ Can be called by the user from within a step definition to execute other steps. """
 
     # The way this works is a little exotic, but I couldn't think of a better way to work around
@@ -93,7 +102,7 @@ def run_steps(spec, language="en"):
         if "self" in fr.f_locals:
             f_self = fr.f_locals['self']
             if isinstance(f_self, StepsRunner):
-                return f_self.run_steps_from_string(spec, language)
+                return f_self.run_steps_from_string(spec, language, strict=strict)
         fr = fr.f_back
 
 

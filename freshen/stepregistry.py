@@ -46,12 +46,15 @@ class StepImpl(object):
     def run(self, *args, **kwargs):
         return self.func(*args, **kwargs)
 
+    def dry_run(self, *args, **kwargs):
+        return None
+
     def __call__(self, *args, **kwargs):
         return self.func(*args, **kwargs)
 
     def match(self, match):
         if not hasattr(self, 're_spec'):
-            self.re_spec = re.compile(self.spec)
+            self.re_spec = re.compile(self.spec, re.UNICODE)
         return self.re_spec.match(match)
 
     def get_location(self):
