@@ -14,7 +14,7 @@ from nose.selector import TestAddress
 from nose.failure import Failure
 from nose.util import isclass
 
-from freshen.core import TagMatcher, load_language, load_feature, StepsRunner
+from freshen.core import TagMatcher, load_language, load_feature, StepsRunner, DryStepsRunner
 from freshen.prettyprint import FreshenPrettyPrint
 from freshen.stepregistry import StepImplLoader, StepImplRegistry
 from freshen.stepregistry import UndefinedStepImpl, StepImplLoadException
@@ -91,6 +91,28 @@ class FreshenNosePlugin(Plugin):
                           help="Make a report of all undefined steps that "
                                "freshen encounters when running scenarios. "
                                "[NOSE_FRESHEN_LIST_UNDEFINED]")
+        parser.add_option('--dry-run',
+                          action="store_true",
+                          default=env.get('NOSE_FRESHEN_DRY_RUN') == '1',
+                          dest="dry_run",
+                          help="Make a dry run of all steps that "
+                               "freshen encounters when running scenarios. "
+                               "[NOSE_FRESHEN_DRY_RUN]")
+        parser.add_option('--parse-strict',
+                          action="store_true",
+                          default=env.get('NOSE_FRESHEN_PARSE_STRICT') == '1',
+                          dest="parse_strict",
+                          help="Make strictly parsing of all feature files that "
+                               "freshen encounters when running scenarios. "
+                               "[NOSE_FRESHEN_PARSE_STRICT]")
+        parser.add_option('--use-test-addresses',
+                          action="store",
+                          default=env.get('NOSE_FRESHEN_USE_TEST_ADDRESSES', False),
+                          dest="use_test_addresses",
+                          help="File to path from which will be loaded test addresses "
+                               "which will filter tests to execute. "
+                               "[NOSE_FRESHEN_USE_TEST_ADDRESSES]")
+
 
     def configure(self, options, config):
         super(FreshenNosePlugin, self).configure(options, config)
@@ -106,6 +128,38 @@ class FreshenNosePlugin(Plugin):
         else:
             self.undefined_steps = None
         self._test_class = None
+        self.dry_run = options.dry_run
+        self.parse_strict = False
+        if options.parse_strict:
+            self.parse_strict = True
+
+        self.test_addresses = None
+        if options.use_test_addresses:
+            file_name = options.use_test_addresses
+            file_name = os.path.expanduser(file_name)
+            if not os.path.isabs(file_name):
+                file_name = os.path.join(config.workingDir, file_name)
+            data = None
+            fh = None
+            try:
+                fh = open(file_name, 'r')
+                data = fh.read()
+            except:
+                pass
+            finally:
+                if fh is not None and fh: fh.close()
+
+            if data is not None:
+                self.test_addresses = []
+                for line in data.split("\n"):
+                    i = line.strip().rfind(":")
+                    if i >= 0:
+                        self.test_addresses.append([line[0:i], int(line[i+1:])])
+                if not len(self.test_addresses):
+                    self.test_addresses = None
+                else:
+                    log.debug("Test addresses to execute: " + str(self.test_addresses))
+
 
     def wantDirectory(self, dirname):
         if not os.path.exists(os.path.join(dirname, ".freshenignore")):
@@ -147,7 +201,7 @@ class FreshenNosePlugin(Plugin):
 
         step_registry = StepImplRegistry(TagMatcher)
         try:
-            feat = load_feature(filename, self.language)
+            feat = load_feature(filename, self.language, strict=self.parse_strict)
             path = os.path.dirname(filename)
         except ParseException, e:
             _, _, tb = sys.exc_info()
@@ -160,13 +214,25 @@ class FreshenNosePlugin(Plugin):
             yield StepsLoadFailure(address=TestAddress(filename), *e.exc)
             return
 
+        filename_path = os.path.abspath(filename)
         cnt = 0
         ctx = FeatureSuite()
         for i, sc in enumerate(feat.iter_scenarios()):
             if (not indexes or (i + 1) in indexes):
                 if self.tagmatcher.check_match(sc.tags + feat.tags):
+
+                    if self.test_addresses is not None:
+                        addr = [filename_path, i + 1]
+                        if addr not in self.test_addresses:
+                            log.debug("Address %s is filtered out" % str(addr))
+                            continue
+
                     test_class = self._makeTestClass(feat, sc)
-                    yield test_class(StepsRunner(step_registry), step_registry, feat, sc, ctx)
+                    if (self.dry_run):
+                        steps_runner = DryStepsRunner(step_registry)
+                    else:
+                        steps_runner = StepsRunner(step_registry)
+                    yield test_class(steps_runner, step_registry, feat, sc, ctx, i + 1, filename_path)
                     cnt += 1
 
         if not cnt:
@@ -222,7 +288,7 @@ class FreshenNosePlugin(Plugin):
     def prepareTestResult(self, result):
         # Patch the result handler with an addError method that saves
         # UndefinedStepImpl exceptions for reporting later.
-        if self.undefined_steps is not None:
+        if self.undefined_steps is not None and not self.dry_run:
             plugin = self
             def _addError(self, test, err):
                 ec, ev, tb = err

@@ -270,22 +270,22 @@ def grammar(fname, l, convert=True, base_line=0):
 
     return feature, steps
 
-def parse_file(fname, language, convert=True):
+def parse_file(fname, language, convert=True, strict=False):
     feature, _ = grammar(fname, language, convert)
     try:
         file_obj = open(fname)
         if convert:
-            feat = feature.parseFile(file_obj)[0]
+            feat = feature.parseFile(file_obj, parseAll=strict)[0]
         else:
-            feat = feature.parseFile(file_obj)
+            feat = feature.parseFile(file_obj, parseAll=strict)
     finally:
         file_obj.close()
     return feat
 
-def parse_steps(spec, fname, base_line, language, convert=True):
+def parse_steps(spec, fname, base_line, language, convert=True, strict=False):
     _, steps = grammar(fname, language, convert, base_line)
     if convert:
-        return steps.parseString(spec)[0]
+        return steps.parseString(spec, parseAll=strict)[0]
     else:
-        return steps.parseString(spec)
+        return steps.parseString(spec, parseAll=strict)
 
