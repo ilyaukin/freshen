@@ -26,7 +26,10 @@ class UndefinedStepImpl(Exception):
 
     def __init__(self, step):
         self.step = step
-        super(UndefinedStepImpl, self).__init__('"%s" # %s' % (step.match, step.source_location()))
+        if isinstance(step, basestring):
+            super(UndefinedStepImpl, self).__init__(step)
+        else:
+            super(UndefinedStepImpl, self).__init__('"%s" # %s' % (step.match, step.source_location()))
 
 class StepImpl(object):
 
