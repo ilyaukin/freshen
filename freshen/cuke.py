@@ -8,6 +8,7 @@ from freshen.context import *
 from freshen.core import TagMatcher, StepsRunner, load_feature, load_language
 from freshen.stepregistry import StepImplLoader, StepImplRegistry, UndefinedStepImpl, AmbiguousStepImpl
 
+
 class FreshenHandler(object):
     
     def before_feature(self, feature):
@@ -61,7 +62,6 @@ def run_scenario(step_registry, scenario, handler):
     runner = StepsRunner(step_registry)
     scc.clear()
     
-    # Run @Before hooks
     for hook_impl in step_registry.get_hooks('before', scenario.get_tags()):
         hook_impl.run(scenario)
     
@@ -76,9 +76,13 @@ def run_scenario(step_registry, scenario, handler):
             handler.step_failed(step, e)
             called = True
         except UndefinedStepImpl, e:
+            for hook_impl in step_registry.get_hooks('undefined', scenario.get_tags()):
+                hook_impl.run(scenario, e)
             handler.step_undefined(step, e)
             called = True
         except AmbiguousStepImpl, e:
+            for hook_impl in step_registry.get_hooks('ambiguous', scenario.get_tags()):
+                hook_impl.run(scenario, e)
             handler.step_ambiguous(step, e)
             called = True
         except Exception, e:
@@ -88,7 +92,6 @@ def run_scenario(step_registry, scenario, handler):
         if not called:
             handler.after_step(step)
     
-    # Run @After hooks
     for hook_impl in step_registry.get_hooks('after', scenario.get_tags()):
         hook_impl.run(scenario)    
     handler.after_scenario(scenario)

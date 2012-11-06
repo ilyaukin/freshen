@@ -4,7 +4,7 @@ import traceback
 import sys
 
 from freshen.context import ftc, scc
-from freshen.stepregistry import UndefinedStepImpl
+from freshen.stepregistry import UndefinedStepImpl, AmbiguousStepImpl
 
 
 class ExceptionWrapper(Exception):
@@ -67,12 +67,21 @@ class FreshenTestCase(object):
     def runStep(self, step, discard_frames=0):
         try:
             self.last_step = step
-            return self.step_runner.run_step(step)
-        except (AssertionError, UndefinedStepImpl, ExceptionWrapper):
+            result = self.step_runner.run_step(step)
+        except UndefinedStepImpl, e:
+            for hook_impl in self.step_registry.get_hooks('undefined', self.scenario.get_tags()):
+                hook_impl.run(self.scenario, e)
+            raise
+        except AmbiguousStepImpl, e:
+            for hook_impl in self.step_registry.get_hooks('ambiguous', self.scenario.get_tags()):
+                hook_impl.run(self.scenario, e)
+            raise
+        except (AssertionError, ExceptionWrapper):
             raise
         except:
             raise ExceptionWrapper(sys.exc_info(), step, discard_frames)
         self.runAfterStepHooks()
+        return result
 
     def runScenario(self):
         raise NotImplementedError('Must be implemented by subclasses')
