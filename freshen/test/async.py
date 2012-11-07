@@ -4,6 +4,7 @@ from freshen.test.base import FreshenTestCase
 
 from twisted.trial.unittest import TestCase
 from twisted.internet.defer import inlineCallbacks, Deferred
+from freshen.core import DryStepsRunner
 
 class TwistedTestCase(FreshenTestCase, TestCase):
     """Support asynchronous feature tests."""
@@ -20,6 +21,8 @@ class TwistedTestCase(FreshenTestCase, TestCase):
     def setUp(self):
         """Initialize the test."""
         super(TwistedTestCase, self).setUp()
+        if isinstance(self.step_runner, DryStepsRunner):
+            return
         hooks = []
         for hook_impl in \
         self.step_registry.get_hooks('before', self.scenario.get_tags()):
@@ -37,6 +40,8 @@ class TwistedTestCase(FreshenTestCase, TestCase):
 
     def tearDown(self):
         """Clean up after the test."""
+        if isinstance(self.step_runner, DryStepsRunner):
+            return
         hooks = []
         for hook_impl in reversed(\
         self.step_registry.get_hooks('after', self.scenario.get_tags())):
