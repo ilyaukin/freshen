@@ -7,7 +7,7 @@ import sys
 import traceback
 from itertools import chain
 
-__all__ = ['Given', 'When', 'Then', 'Before', 'After', 'AfterStep', 'Transform', 'NamedTransform']
+__all__ = ['Given', 'When', 'Then', 'Before', 'After', 'AfterStep', 'Transform', 'NamedTransform', 'OnUndefined', 'OnAmbiguous']
 __unittest = 1
 
 log = logging.getLogger('freshen')
@@ -26,7 +26,10 @@ class UndefinedStepImpl(Exception):
 
     def __init__(self, step):
         self.step = step
-        super(UndefinedStepImpl, self).__init__('"%s" # %s' % (step.match, step.source_location()))
+        if isinstance(step, basestring):
+            super(UndefinedStepImpl, self).__init__(step)
+        else:
+            super(UndefinedStepImpl, self).__init__('"%s" # %s' % (step.match, step.source_location()))
 
 class StepImpl(object):
 
@@ -73,8 +76,8 @@ class HookImpl(object):
     def __repr__(self):
         return "<Hook: @%s %s(...)>" % (self.cb_type, self.func.func_name)
 
-    def run(self, scenario):
-        return self.func(scenario)
+    def run(self, scenario, *args):
+        return self.func(scenario, *args)
 
     def __call__(self, *args, **kwargs):
         return self.func(*args, **kwargs)
@@ -183,7 +186,9 @@ class StepImplRegistry(object):
         self.hooks = {
             'before': [],
             'after': [],
-            'after_step': []
+            'after_step': [],
+            'undefined': [],
+            'ambiguous': [],
         }
 
         self.transforms = []
@@ -282,5 +287,7 @@ Then = step_decorator('then')
 Before = hook_decorator('before')
 After = hook_decorator('after')
 AfterStep = hook_decorator('after_step')
+OnUndefined = hook_decorator('undefined')
+OnAmbiguous = hook_decorator('ambiguous')
 Transform = transform_decorator
 NamedTransform = named_transform_decorator

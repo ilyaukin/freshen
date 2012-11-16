@@ -3,6 +3,7 @@
 from freshen.test.base import FreshenTestCase
 
 from unittest import TestCase
+from freshen.core import DryStepsRunner
 
 
 class PyunitTestCase(FreshenTestCase, TestCase):
@@ -15,6 +16,8 @@ class PyunitTestCase(FreshenTestCase, TestCase):
 
     def setUp(self):
         super(PyunitTestCase, self).setUp()
+        if isinstance(self.step_runner, DryStepsRunner):
+            return
         for hook_impl in self.step_registry.get_hooks('before', self.scenario.get_tags()):
             hook_impl.run(self.scenario)
 
@@ -24,5 +27,7 @@ class PyunitTestCase(FreshenTestCase, TestCase):
         self.last_step = None
 
     def tearDown(self):
+        if isinstance(self.step_runner, DryStepsRunner):
+            return
         for hook_impl in reversed(self.step_registry.get_hooks('after', self.scenario.get_tags())):
             hook_impl.run(self.scenario)
